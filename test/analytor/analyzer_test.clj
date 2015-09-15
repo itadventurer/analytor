@@ -32,9 +32,9 @@
 (use-fixtures :once analytor-test-fixture)
 
 (deftest simple-test
-  (is (= [:fruit {:id [:integer]
+  (is (= {:fruit {:id [:integer]
                   :name [:varchar {:size 32}]
                   :appearance [:varchar {:size 32}]
                   :cost [:integer]
-                  :grade [:real]}]
+                  :grade [:real]}}
          (analyze test-db-connection))))

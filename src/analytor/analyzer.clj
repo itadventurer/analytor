@@ -150,6 +150,6 @@
 (defn analyze
   "Analyze the all tables in a given database schema"
   [conn]
-  (first (map #(transform-table % conn)
-              (get-sql-metadata conn
-                                .getTables nil nil nil (into-array ["TABLE" "VIEW"])))))
+  (into {} (map #(transform-table % conn)
+                (get-sql-metadata conn
+                                  .getTables nil nil nil (into-array ["TABLE" "VIEW"])))))
