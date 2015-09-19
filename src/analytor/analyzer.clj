@@ -3,11 +3,6 @@
             [clojure.test :refer [with-test is are]]))
 
 ;; using apply here is not an option because apply does not like Java functions
-(defmacro with-metadata [db method & args]
-  `(~method (.getMetaData (jdbc/get-connection ~db)) ~@args))
-
-(defmacro get-sql-metadata [db method & args]
-  `(doall (resultset-seq (with-metadata ~db ~method ~@args))))
 
 (def db-hierarchy
   (-> (make-hierarchy)
@@ -126,30 +121,37 @@
 
 (match-datatype-imp :mysql)
 
+(defmacro with-db-metadata-seq
+  [binding & body]
+  `(resultset-seq
+    (jdbc/with-db-metadata ~binding
+      ~@body)))
 
 (defn transform-column
   "Transform the column metadata"
   [column conn]
   (let [name (:column_name column)
-        datatype (match-datatype (match-db-type (with-metadata conn .getURL)) (:type_name column))
+        datatype (match-datatype (match-db-type
+                                  (jdbc/with-db-metadata [md conn]
+                                    (.getURL md)))
+                                 (:type_name column))
         additional (analyze-data-type-args datatype column)]
     (if (empty? additional)
       [(keyword name) [datatype]]
       [(keyword name) [datatype additional]])))
 
-
 (defn transform-table
   "Transform the table metadata"
   [table conn]
   (let [table-name (:table_name table)
-        column-spec (map #(transform-column % conn)
-                         (get-sql-metadata conn .getColumns nil nil table-name nil))]
+        columns (with-db-metadata-seq [md conn]
+                  (.getColumns md  nil nil table-name nil))
+        column-spec (map #(transform-column % conn) columns)]
     [(keyword table-name) (into {} column-spec)]))
-
 
 (defn analyze
   "Analyze the all tables in a given database schema"
   [conn]
-  (into {} (map #(transform-table % conn)
-                (get-sql-metadata conn
-                                  .getTables nil nil nil (into-array ["TABLE" "VIEW"])))))
+  (let [tables (with-db-metadata-seq [md conn]
+                 (.getTables md nil nil nil (into-array ["TABLE" "VIEW"])))]
+    (into {} (map #(transform-table % conn) tables))))
