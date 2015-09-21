@@ -38,3 +38,12 @@
                   :cost [:integer]
                   :grade [:real]}}
          (analyze test-db-connection))))
+
+(deftest simple-transaction-test
+  (is (= {:fruit {:id [:integer]
+                  :name [:varchar {:size 32}]
+                  :appearance [:varchar {:size 32}]
+                  :cost [:integer]
+                  :grade [:real]}}
+         (jdbc/with-db-connection [test-db-connection test-db-connection]
+           (analyze test-db-connection)))))

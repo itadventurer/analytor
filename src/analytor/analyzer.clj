@@ -1,7 +1,6 @@
 (ns analytor.analyzer
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.test :refer [with-test is are]]))
-
 ;; using apply here is not an option because apply does not like Java functions
 
 (def db-hierarchy
@@ -121,10 +120,20 @@
 
 (match-datatype-imp :mysql)
 
+(defmacro with-db-metadata
+  "A wrapper that extracts the metadata from the current
+  connection. The difference to the JDBC function is that it does not
+  close the connection afterwards because it is handled by the
+  with-db-transaction"
+  [binding & body]
+  `(let [^java.sql.Connection con# (:connection ~(second binding))
+         ~(first binding) (.getMetaData con#)]
+     ~@body))
+
 (defmacro with-db-metadata-seq
   [binding & body]
   `(resultset-seq
-    (jdbc/with-db-metadata ~binding
+    (with-db-metadata ~binding
       ~@body)))
 
 (defn transform-column
@@ -132,7 +141,7 @@
   [column conn]
   (let [name (:column_name column)
         datatype (match-datatype (match-db-type
-                                  (jdbc/with-db-metadata [md conn]
+                                  (with-db-metadata [md conn]
                                     (.getURL md)))
                                  (:type_name column))
         additional (analyze-data-type-args datatype column)]
@@ -148,10 +157,14 @@
                   (.getColumns md  nil nil table-name nil))
         column-spec (map #(transform-column % conn) columns)]
     [(keyword table-name) (into {} column-spec)]))
-
 (defn analyze
   "Analyze the all tables in a given database schema"
   [conn]
-  (let [tables (with-db-metadata-seq [md conn]
-                 (.getTables md nil nil nil (into-array ["TABLE" "VIEW"])))]
-    (into {} (map #(transform-table % conn) tables))))
+  ;; We put it in a transaction. That guarantees us that we have a
+  ;; `:connection` key in the `conn` map. We also never call a
+  ;; function from jdbc that would close the connection, because that
+  ;; would break a lot of things
+  (jdbc/with-db-transaction [conn conn]
+    (let [tables (with-db-metadata-seq [md conn]
+                   (.getTables md nil nil nil (into-array ["TABLE" "VIEW"])))]
+      (into {} (map #(transform-table % conn) tables)))))
