@@ -1,5 +1,5 @@
-(ns analytor.analyzer-test
-  (:require [analytor.analyzer :refer :all]
+(ns analytor.core-test
+  (:require [analytor.core :refer :all]
             [clojure.test :refer :all]
             [clojure.java.jdbc :as jdbc]
             [schema.core :as s]))

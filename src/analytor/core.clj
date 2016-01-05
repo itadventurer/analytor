@@ -1,4 +1,4 @@
-(ns analytor.analyzer
+(ns analytor.core
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.test :refer [with-test is are]]
             [schema.core :as s]))
@@ -10,8 +10,9 @@
   {s/Keyword Type})
 
 (s/defschema ForeignKey
-  {:fktable_name s/Keyword
-   :fkcolumn_name s/Keyword})
+  {:column s/Keyword
+   :target-table s/Keyword
+   :target-column s/Keyword})
 
 (s/defschema Table
   {:columns Columns
@@ -93,7 +94,7 @@
   (defmethod match-datatype db-type
     [_ data-type]
     (let [data-type (match-datatype ::standard data-type)
-          mappings (eval (symbol (str "analytor.analyzer/analyzer-data-type-aliases-" (name db-type))))]
+          mappings (eval (symbol (str "analytor.core/analyzer-data-type-aliases-" (name db-type))))]
       (if (contains? mappings data-type)
         (data-type mappings)
         data-type))))
@@ -187,8 +188,9 @@
         foreign-keys (vec-or-nil
                       (map
                        (fn [imported-key]
-                         {:fktable_name (keyword (:fktable_name imported-key))
-                          :fkcolumn_name (keyword (:fkcolumn_name imported-key))})
+                         {:column (keyword (:fkcolumn_name imported-key))
+                          :target-table (keyword (:pktable_name imported-key))
+                          :target-column (keyword (:pkcolumn_name imported-key))})
                        (with-db-metadata-seq [md conn]
                          (.getImportedKeys md nil nil table-name))))]
     [(keyword table-name) {:columns (into {} column-spec)
