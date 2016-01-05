@@ -1,7 +1,10 @@
 (ns analytor.analyzer-test
   (:require [analytor.analyzer :refer :all]
             [clojure.test :refer :all]
-            [clojure.java.jdbc :as jdbc]))
+            [clojure.java.jdbc :as jdbc]
+            [schema.core :as s]))
+
+(s/set-fn-validation! true)
 
 (def test-db-connection
   {:subprotocol "postgresql"
@@ -31,19 +34,26 @@
 
 (use-fixtures :once analytor-test-fixture)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Tests
+
 (deftest simple-test
-  (is (= {:fruit {:id [:integer]
-                  :name [:varchar {:size 32}]
-                  :appearance [:varchar {:size 32}]
-                  :cost [:integer]
-                  :grade [:real]}}
+  (is (= {:fruit {:columns {:id [:integer]
+                            :name [:varchar {:size 32}]
+                            :appearance [:varchar {:size 32}]
+                            :cost [:integer]
+                            :grade [:real]}
+                  :primary-key nil
+                  :foreign-keys nil}}
          (analyze test-db-connection))))
 
 (deftest simple-transaction-test
-  (is (= {:fruit {:id [:integer]
-                  :name [:varchar {:size 32}]
-                  :appearance [:varchar {:size 32}]
-                  :cost [:integer]
-                  :grade [:real]}}
+  (is (= {:fruit {:columns {:id [:integer]
+                            :name [:varchar {:size 32}]
+                            :appearance [:varchar {:size 32}]
+                            :cost [:integer]
+                            :grade [:real]}
+                  :primary-key nil
+                  :foreign-keys nil}}
          (jdbc/with-db-connection [test-db-connection test-db-connection]
            (analyze test-db-connection)))))

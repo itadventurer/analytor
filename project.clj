@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/java.jdbc "0.4.1"]
                  [org.postgresql/postgresql "9.4-1201-jdbc41"]
+                 [prismatic/schema "1.0.4"]
                  ]
   :repositories [["snapshots" {:url "https://maven.azapps.de/artifactory/mirakeldb-snapshots"}]
                  ["releases" {:url "https://maven.azapps.de/artifactory/mirakeldb-releases"}]])

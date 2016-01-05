@@ -1,7 +1,25 @@
 (ns analytor.analyzer
   (:require [clojure.java.jdbc :as jdbc]
-            [clojure.test :refer [with-test is are]]))
-;; using apply here is not an option because apply does not like Java functions
+            [clojure.test :refer [with-test is are]]
+            [schema.core :as s]))
+
+(s/defschema Type
+  [(s/one s/Keyword "cname") (s/optional {s/Keyword s/Any} "params")])
+
+(s/defschema Columns
+  {s/Keyword Type})
+
+(s/defschema ForeignKey
+  {:fktable_name s/Keyword
+   :fkcolumn_name s/Keyword})
+
+(s/defschema Table
+  {:columns Columns
+   :primary-key (s/maybe [s/Keyword])
+   :foreign-keys (s/maybe [ForeignKey])})
+
+(s/defschema Analysis
+  {s/Keyword Table})
 
 (def db-hierarchy
   (-> (make-hierarchy)
@@ -136,7 +154,8 @@
     (with-db-metadata ~binding
       ~@body)))
 
-(defn transform-column
+
+(s/defn transform-column :- [(s/one s/Keyword "name") (s/one Type "type")]
   "Transform the column metadata"
   [column conn]
   (let [name (:column_name column)
@@ -149,15 +168,34 @@
       [(keyword name) [datatype]]
       [(keyword name) [datatype additional]])))
 
-(defn transform-table
+(defn vec-or-nil
+  [v]
+  (when (seq v)
+    (vec v)))
+
+(s/defn transform-table :- [(s/one s/Keyword "table-name") (s/one Table "table-data")]
   "Transform the table metadata"
   [table conn]
   (let [table-name (:table_name table)
         columns (with-db-metadata-seq [md conn]
                   (.getColumns md  nil nil table-name nil))
-        column-spec (map #(transform-column % conn) columns)]
-    [(keyword table-name) (into {} column-spec)]))
-(defn analyze
+        column-spec (map #(transform-column % conn) columns)
+        primary-key (vec-or-nil
+                     (map (comp keyword :column_name)
+                          (with-db-metadata-seq [md conn]
+                            (.getPrimaryKeys md nil nil table-name))))
+        foreign-keys (vec-or-nil
+                      (map
+                       (fn [imported-key]
+                         {:fktable_name (keyword (:fktable_name imported-key))
+                          :fkcolumn_name (keyword (:fkcolumn_name imported-key))})
+                       (with-db-metadata-seq [md conn]
+                         (.getImportedKeys md nil nil table-name))))]
+    [(keyword table-name) {:columns (into {} column-spec)
+                           :primary-key primary-key
+                           :foreign-keys foreign-keys}]))
+
+(s/defn analyze :- Analysis
   "Analyze the all tables in a given database schema"
   [conn]
   ;; We put it in a transaction. That guarantees us that we have a
