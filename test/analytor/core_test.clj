@@ -38,22 +38,22 @@
 ;; Tests
 
 (deftest simple-test
-  (is (= {:fruit {:columns {:id [:integer]
-                            :name [:varchar {:size 32}]
-                            :appearance [:varchar {:size 32}]
-                            :cost [:integer]
-                            :grade [:real]}
-                  :primary-key nil
-                  :foreign-keys nil}}
+  (is (= [[:fruit {:columns [[:id [:integer]]
+                             [:name [:varchar {:size 32}]]
+                             [:appearance [:varchar {:size 32}]]
+                             [:cost [:integer]]
+                             [:grade [:real]]]
+                   :primary-key nil
+                   :foreign-keys nil}]]
          (analyze test-db-connection))))
 
 (deftest simple-transaction-test
-  (is (= {:fruit {:columns {:id [:integer]
-                            :name [:varchar {:size 32}]
-                            :appearance [:varchar {:size 32}]
-                            :cost [:integer]
-                            :grade [:real]}
-                  :primary-key nil
-                  :foreign-keys nil}}
+  (is (= [[:fruit {:columns [[:id [:integer]]
+                             [:name [:varchar {:size 32}]]
+                             [:appearance [:varchar {:size 32}]]
+                             [:cost [:integer]]
+                             [:grade [:real]]]
+                   :primary-key nil
+                   :foreign-keys nil}]]
          (jdbc/with-db-connection [test-db-connection test-db-connection]
            (analyze test-db-connection)))))

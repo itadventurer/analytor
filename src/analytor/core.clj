@@ -7,7 +7,7 @@
   [(s/one s/Keyword "cname") (s/optional {s/Keyword s/Any} "params")])
 
 (s/defschema Columns
-  {s/Keyword Type})
+  [[(s/one s/Keyword "column-name") (s/one Type "column-type")]])
 
 (s/defschema ForeignKey
   {:column s/Keyword
@@ -20,7 +20,7 @@
    :foreign-keys (s/maybe [ForeignKey])})
 
 (s/defschema Analysis
-  {s/Keyword Table})
+  [[(s/one s/Keyword "table-name") (s/one Table "table")]])
 
 (def db-hierarchy
   (-> (make-hierarchy)
@@ -151,23 +151,24 @@
 
 (defmacro with-db-metadata-seq
   [binding & body]
-  `(resultset-seq
-    (with-db-metadata ~binding
-      ~@body)))
+  `(doall (resultset-seq
+           (with-db-metadata ~binding
+             ~@body))))
 
 
 (s/defn transform-column :- [(s/one s/Keyword "name") (s/one Type "type")]
   "Transform the column metadata"
   [column conn]
-  (let [name (:column_name column)
+  (let [column-name (:column_name column)
+        column-type (clojure.string/lower-case (:type_name column))
         datatype (match-datatype (match-db-type
                                   (with-db-metadata [md conn]
                                     (.getURL md)))
-                                 (:type_name column))
+                                 column-type)
         additional (analyze-data-type-args datatype column)]
     (if (empty? additional)
-      [(keyword name) [datatype]]
-      [(keyword name) [datatype additional]])))
+      [(keyword column-name) [datatype]]
+      [(keyword column-name) [datatype additional]])))
 
 (defn vec-or-nil
   [v]
@@ -193,7 +194,7 @@
                           :target-column (keyword (:pkcolumn_name imported-key))})
                        (with-db-metadata-seq [md conn]
                          (.getImportedKeys md nil nil table-name))))]
-    [(keyword table-name) {:columns (into {} column-spec)
+    [(keyword table-name) {:columns column-spec
                            :primary-key primary-key
                            :foreign-keys foreign-keys}]))
 
@@ -207,4 +208,4 @@
   (jdbc/with-db-transaction [conn conn]
     (let [tables (with-db-metadata-seq [md conn]
                    (.getTables md nil nil nil (into-array ["TABLE" "VIEW"])))]
-      (into {} (map #(transform-table % conn) tables)))))
+      (doall (map #(transform-table % conn) tables)))))
