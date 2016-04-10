@@ -3,8 +3,12 @@
             [clojure.test :refer [with-test is are]]
             [schema.core :as s]))
 
+(defn strict-map
+  [& args]
+  (doall (apply map args)))
+
 (s/defschema Type
-  [(s/one s/Keyword "cname") (s/optional {s/Keyword s/Any} "params")])
+  [(s/one s/Keyword "type") (s/optional {s/Keyword s/Any} "params")])
 
 (s/defschema Columns
   [[(s/one s/Keyword "column-name") (s/one Type "column-type")]])
@@ -181,11 +185,11 @@
   (let [table-name (:table_name table)
         columns (with-db-metadata-seq [md conn]
                   (.getColumns md  nil nil table-name nil))
-        column-spec (map #(transform-column % conn) columns)
+        column-spec (strict-map #(transform-column % conn) columns)
         primary-key (vec-or-nil
-                     (map (comp keyword :column_name)
-                          (with-db-metadata-seq [md conn]
-                            (.getPrimaryKeys md nil nil table-name))))
+                     (strict-map (comp keyword :column_name)
+                                 (with-db-metadata-seq [md conn]
+                                   (.getPrimaryKeys md nil nil table-name))))
         foreign-keys (vec-or-nil
                       (map
                        (fn [imported-key]
@@ -208,4 +212,4 @@
   (jdbc/with-db-transaction [conn conn]
     (let [tables (with-db-metadata-seq [md conn]
                    (.getTables md nil nil nil (into-array ["TABLE" "VIEW"])))]
-      (doall (map #(transform-table % conn) tables)))))
+      (strict-map #(transform-table % conn) tables))))
