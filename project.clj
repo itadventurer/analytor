@@ -1,4 +1,4 @@
-(defproject analytor "0.1.0"
+(defproject analytor "0.1.1"
   :description "A library to analyze database schemas"
   :url "https://github.com/azapps/analytor"
   :license {:name "Eclipse Public License"
