@@ -1,7 +1,7 @@
 (ns analytor.core
-  (:require [clojure.java.jdbc :as jdbc]
-            [clojure.test :refer [with-test is are]]
-            [schema.core :as s]))
+  (:require
+   [clojure.java.jdbc :as jdbc]
+   [schema.core :as s]))
 
 (defn strict-map
   [& args]
@@ -49,23 +49,16 @@
 (defn isMicrosoft? [url]
   (string? (re-find #"microsoft:sqlserver" url)))
 
-(with-test
-  (defn match-db-type
-    "Matches the jdbc-url to a database type"
-    [url]
-    (cond
-      (isPostgres? url) :postgresql
-      (isMySql? url) :mysql
-      (isMicrosoft? url) :microsoft-sql-server
-      (isSqlite? url)  :sqlite
-      (isH2? url)  :h2
-      :else ::standard))
-  (are [uri db-type] (= db-type (match-db-type uri))
-    "jdbc:postgresql://localhost:5432/analytor_test" :postgresql
-    "jdbc:mysql://HOST/DATABASE" :mysql
-    "jdbc:microsoft:sqlserver://HOST:1433;DatabaseName=DATABASE" :microsoft-sql-server
-    "jdbc:sqlite:///COMPUTERNAME/shareA/dirB/dbfile" :sqlite
-    "jdbc:h2:tcp://localhost//data/test" :h2))
+(defn match-db-type
+  "Matches the jdbc-url to a database type"
+  [url]
+  (cond
+    (isPostgres? url) :postgresql
+    (isMySql? url) :mysql
+    (isMicrosoft? url) :microsoft-sql-server
+    (isSqlite? url)  :sqlite
+    (isH2? url)  :h2
+    :else ::standard))
 
 
 (defn analyze-data-type-args
@@ -81,67 +74,48 @@
 
     #{:decimal :numeric}
     (let [scale (:decimal_digits column-meta)]
-      (if (= scale 0)
+      (if (zero? scale)
         {:size (:column_size column-meta)}
         {:size (:column_size column-meta) :digits scale}))
 
     {}))
 
 
-(defmulti match-datatype (fn [db-type data-type] db-type))
+(def data-type-aliases
+  {:postgresql
+   {:bool :boolean
+    :bpchar :char
+    :bytea :blob
+    :float4 :real
+    :float8 :double
+    :int2 :smallint
+    :int4 :integer
+    :int8 :bigint
+    :text :nclob
+    :timestamptz :timestamp
+    :timetz :time}
+   :microsoft-sql-server
+   {:bit :boolean
+    :datetime2 :timestamp
+    :image :blob
+    :int :integer
+    :ntext :nclob
+    :text :clob}
+   :sqlite
+   {:time-with-time-zone :time
+    :timestamp-with-time-zone :timestamp}
+   :mysql
+   {:bit :boolean
+    :int :integer
+    :text :clob
+    :tinyblob :blob
+    :tinytext :clob}})
 
-(defmethod match-datatype ::standard
-  [_ data-type]
-  (keyword data-type))
-
-(defmacro match-datatype-imp [db-type]
-  (defmethod match-datatype db-type
-    [_ data-type]
-    (let [data-type (match-datatype ::standard data-type)
-          mappings (eval (symbol (str "analytor.core/analyzer-data-type-aliases-" (name db-type))))]
-      (if (contains? mappings data-type)
-        (data-type mappings)
-        data-type))))
-
-(def analyzer-data-type-aliases-postgresql
-  {:bool :boolean
-   :bpchar :char
-   :bytea :blob
-   :float4 :real
-   :float8 :double
-   :int2 :smallint
-   :int4 :integer
-   :int8 :bigint
-   :text :nclob
-   :timestamptz :timestamp
-   :timetz :time})
-
-(match-datatype-imp :postgresql)
-
-(def analyzer-data-type-aliases-microsoft-sql-server
-  {:bit :boolean
-   :datetime2 :timestamp
-   :image :blob
-   :int :integer
-   :ntext :nclob
-   :text :clob})
-
-(match-datatype-imp :microsoft-sql-server)
-
-(def analyzer-data-type-aliases-sqlite
-  {:time-with-time-zone :time
-   :timestamp-with-time-zone :timestamp})
-
-(match-datatype-imp :sqlite)
-
-(def analyzer-data-type-aliases-mysql
-  {:bit :boolean
-   :int :integer
-   :text :clob
-   :tinyblob :blob
-   :tinytext :clob})
-
-(match-datatype-imp :mysql)
+(defn match-datatype
+  [db-type data-type]
+  (let [data-type (keyword data-type)]
+    (or (get-in data-type-aliases [db-type data-type])
+        data-type)))
 
 (defmacro with-db-metadata
   "A wrapper that extracts the metadata from the current

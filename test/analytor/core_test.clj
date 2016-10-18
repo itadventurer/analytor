@@ -37,6 +37,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
+(deftest test-match-db-type
+  (are [uri db-type] (= db-type (match-db-type uri))
+    "jdbc:postgresql://localhost:5432/analytor_test" :postgresql
+    "jdbc:mysql://HOST/DATABASE" :mysql
+    "jdbc:microsoft:sqlserver://HOST:1433;DatabaseName=DATABASE" :microsoft-sql-server
+    "jdbc:sqlite:///COMPUTERNAME/shareA/dirB/dbfile" :sqlite
+    "jdbc:h2:tcp://localhost//data/test" :h2))
+
 (deftest simple-test
   (is (= [[:fruit {:columns [[:id [:integer]]
                              [:name [:varchar {:size 32}]]
