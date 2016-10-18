@@ -10,8 +10,14 @@
 (s/defschema Type
   [(s/one s/Keyword "type") (s/optional {s/Keyword s/Any} "params")])
 
+(s/defschema Column
+  {:column-name s/Keyword
+   :data-type {s/Keyword s/Any}
+   :nullable? s/Bool
+   :autoincrement? s/Bool})
+
 (s/defschema Columns
-  [[(s/one s/Keyword "column-name") (s/one Type "column-type")]])
+  [Column])
 
 (s/defschema ForeignKey
   {:column s/Keyword
@@ -19,12 +25,13 @@
    :target-column s/Keyword})
 
 (s/defschema Table
-  {:columns Columns
+  {:table-name s/Keyword
+   :columns Columns
    :primary-key (s/maybe [s/Keyword])
    :foreign-keys (s/maybe [ForeignKey])})
 
 (s/defschema Analysis
-  [[(s/one s/Keyword "table-name") (s/one Table "table")]])
+  [Table])
 
 (def db-hierarchy
   (-> (make-hierarchy)
@@ -134,7 +141,7 @@
              ~@body))))
 
 
-(s/defn transform-column :- [(s/one s/Keyword "name") (s/one Type "type")]
+(s/defn transform-column :- Column
   "Transform the column metadata"
   [column conn]
   (let [column-name (:column_name column)
@@ -144,16 +151,18 @@
                                     (.getURL md)))
                                  column-type)
         additional (analyze-data-type-args datatype column)]
-    (if (empty? additional)
-      [(keyword column-name) [datatype]]
-      [(keyword column-name) [datatype additional]])))
+    {:column-name (keyword column-name)
+     :data-type (assoc additional
+                       :type datatype)
+     :nullable? (= (:is_nullable column) "YES")
+     :autoincrement? (= (:is_autoincrement column) "YES")}))
 
 (defn vec-or-nil
   [v]
   (when (seq v)
     (vec v)))
 
-(s/defn transform-table :- [(s/one s/Keyword "table-name") (s/one Table "table-data")]
+(s/defn transform-table :- Table
   "Transform the table metadata"
   [table conn]
   (let [table-name (:table_name table)
@@ -172,9 +181,10 @@
                           :target-column (keyword (:pkcolumn_name imported-key))})
                        (with-db-metadata-seq [md conn]
                          (.getImportedKeys md nil nil table-name))))]
-    [(keyword table-name) {:columns column-spec
-                           :primary-key primary-key
-                           :foreign-keys foreign-keys}]))
+    {:table-name(keyword table-name)
+     :columns column-spec
+     :primary-key primary-key
+     :foreign-keys foreign-keys}))
 
 (s/defn analyze :- Analysis
   "Analyze the all tables in a given database schema"

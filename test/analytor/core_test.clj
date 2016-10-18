@@ -46,22 +46,56 @@
     "jdbc:h2:tcp://localhost//data/test" :h2))
 
 (deftest simple-test
-  (is (= [[:fruit {:columns [[:id [:integer]]
-                             [:name [:varchar {:size 32}]]
-                             [:appearance [:varchar {:size 32}]]
-                             [:cost [:integer]]
-                             [:grade [:real]]]
-                   :primary-key nil
-                   :foreign-keys nil}]]
+  (is (= [{:table-name :fruit,
+           :columns
+           [{:column-name :id,
+             :data-type {:type :integer},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :name,
+             :data-type {:size 32, :type :varchar},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :appearance,
+             :data-type {:size 32, :type :varchar},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :cost,
+             :data-type {:type :integer},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :grade,
+             :data-type {:type :real},
+             :nullable? true,
+             :autoincrement? false}],
+           :primary-key nil,
+           :foreign-keys nil}]
          (analyze test-db-connection))))
 
 (deftest simple-transaction-test
-  (is (= [[:fruit {:columns [[:id [:integer]]
-                             [:name [:varchar {:size 32}]]
-                             [:appearance [:varchar {:size 32}]]
-                             [:cost [:integer]]
-                             [:grade [:real]]]
-                   :primary-key nil
-                   :foreign-keys nil}]]
+  (is (= [{:table-name :fruit,
+           :columns
+           [{:column-name :id,
+             :data-type {:type :integer},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :name,
+             :data-type {:size 32, :type :varchar},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :appearance,
+             :data-type {:size 32, :type :varchar},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :cost,
+             :data-type {:type :integer},
+             :nullable? true,
+             :autoincrement? false}
+            {:column-name :grade,
+             :data-type {:type :real},
+             :nullable? true,
+             :autoincrement? false}],
+           :primary-key nil,
+           :foreign-keys nil}]
          (jdbc/with-db-connection [test-db-connection test-db-connection]
            (analyze test-db-connection)))))
